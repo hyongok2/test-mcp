@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build: .
+    container_name: samsung-sdi-ems-server
+    image: samsung-sdi-ems-server:latest
+    ports:
+      - "5450:8000"
+    environment:
+      - FLASK_ENV=production
+      - CORS_ORIGINS=*  # 개발용: 모든 도메인 허용
+      # 프로덕션에서는 다음과 같이 설정:
+      # - CORS_ORIGINS=https://your-domain.com,https://another-domain.com
+    volumes:
+      - ./data:/app/data  # 데이터 영속성을 위한 볼륨 (선택사항)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"  # Traefik 사용 시
+      - "traefik.http.routers.mcp-server.rule=Host(`mcp.your-domain.com`)"
+      - "traefik.http.services.mcp-server.loadbalancer.server.port=8000"
+
+  # 선택사항: Redis 캐시 (성능 향상을 위해)
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  redis_data:
+
+networks:
+  default:
+    name: mcp-network
